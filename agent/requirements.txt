@@ -1,0 +1,12 @@
+pandas
+numpy==1.26.4
+requests
+psycopg2-binary
+python-dotenv
+eth-account
+websocket-client
+joblib
+scikit-learn==1.2.2
+git+https://github.com/elliottech/lighter-python.git
+fastapi
+uvicorn
