@@ -12,10 +12,8 @@ import threading
 import asyncio
 from db.database import init_db, insert_trade_log, insert_placed_trade
 
-# Add script dir
 sys.path.append(os.path.dirname(__file__))
 
-# --- Configuration ---
 LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
 LIGHTER_REST_URL = "https://mainnet.zklighter.elliot.ai/api/v1"
 
@@ -24,7 +22,6 @@ SYMBOL = "BTC"
 TIMEFRAME = "5m"
 TIMEFRAME_MINUTES = 5
 
-# Trading Params (V4.1 Moto Shield V2)
 INITIAL_CAPITAL = 300.0
 LEVERAGE = 30
 CONFIDENCE_THRESHOLD = 0.65
