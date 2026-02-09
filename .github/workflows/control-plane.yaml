@@ -3,7 +3,7 @@ name: Control Plane CI/CD - Deploy to EC2
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - 'control-plane/**'
       - '.github/workflows/control-plane.yaml'
@@ -42,44 +42,15 @@ jobs:
           # Build and restart on EC2
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ env.EC2_USER }}@${{ env.EC2_HOST }} bash << 'EOF'
-            set -e
-            
-            # Kill existing process
             pkill -f control-plane || true
-            
-            # Navigate to control-plane directory
             cd /home/ubuntu/lighter-k8/control-plane
-            
-            echo "📁 Current directory: $(pwd)"
-            
-            # Load cargo
-            if [ -f "$HOME/.cargo/env" ]; then
-              source "$HOME/.cargo/env"
-            fi
-            
-            # Check .env file
-            if [ -f .env ]; then
-              echo "✅ .env file found"
-              echo "📋 .env file location: $(pwd)/.env"
-            else
-              echo "❌ .env file NOT found!"
-              exit 1
-            fi
-            
-            # Start the service with cargo run
-            echo "🚀 Starting control-plane with cargo run..."
+            source $HOME/.cargo/env
             nohup cargo run --release > /tmp/control-plane.log 2>&1 &
-            
-            # Wait for startup
             sleep 10
-            
-            # Check if it's running
-            if pgrep -f "control-plane" > /dev/null; then
-              echo "✅ Control plane deployed and running!"
-              ps aux | grep control-plane | grep -v grep
+            if pgrep -f control-plane > /dev/null; then
+              echo "✅ Control plane running"
             else
-              echo "❌ Control plane failed to start"
-              echo "Last 50 lines of log:"
+              echo "❌ Failed to start"
               tail -50 /tmp/control-plane.log
               exit 1
             fi
@@ -87,22 +58,12 @@ jobs:
 
       - name: Health check
         run: |
-          echo "⏳ Waiting for service to start..."
-          
-          # Retry health check up to 30 times (60 seconds total)
           for i in {1..30}; do
-            if curl -f -s http://${{ env.EC2_HOST }}:8080/health > /dev/null 2>&1; then
-              echo "✅ Deployment successful! API is healthy."
-              echo "🔗 API URL: http://${{ env.EC2_HOST }}:8080"
+            if curl -sf http://${{ env.EC2_HOST }}:8080/health > /dev/null 2>&1; then
+              echo "✅ Deployment successful - http://${{ env.EC2_HOST }}:8080"
               exit 0
             fi
-            echo "Attempt $i/30 - waiting..."
             sleep 2
           done
-          
-          echo "❌ Health check failed after 60 seconds"
-          echo "Checking if service is running on EC2..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
-            "ps aux | grep control-plane | grep -v grep && tail -100 /tmp/control-plane.log"
+          echo "❌ Health check failed"
           exit 1
