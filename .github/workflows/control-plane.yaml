@@ -47,50 +47,34 @@ jobs:
             # Kill existing process
             pkill -f control-plane || true
             
-            # Navigate to workspace root (not control-plane subdirectory)
-            cd /home/ubuntu/lighter-k8
+            # Navigate to control-plane directory
+            cd /home/ubuntu/lighter-k8/control-plane
             
-            # Show current directory for debugging
             echo "📁 Current directory: $(pwd)"
             
-            # Load cargo environment (try multiple paths)
+            # Load cargo
             if [ -f "$HOME/.cargo/env" ]; then
-              source "$HOME/.cargo/env"
-            elif command -v cargo &> /dev/null; then
-              echo "✅ Cargo already in PATH"
-            else
-              echo "❌ Cargo not found, installing rustup..."
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
               source "$HOME/.cargo/env"
             fi
             
-            # Verify cargo is available
-            cargo --version
-            
-            # Build the control-plane (from workspace root)
-            echo "📦 Building control-plane..."
-            cargo build --release --bin control-plane
-            
-            # Verify binary exists (workspace target directory)
-            if [ ! -f ./target/release/control-plane ]; then
-              echo "❌ Binary not found!"
-              echo "Workspace target directory contents:"
-              ls -la ./target/release/ 2>&1 || echo "target/release directory does not exist"
+            # Check .env file
+            if [ -f .env ]; then
+              echo "✅ .env file found"
+              echo "📋 .env file location: $(pwd)/.env"
+            else
+              echo "❌ .env file NOT found!"
               exit 1
             fi
             
-            echo "✅ Binary built successfully"
-            ls -lh ./target/release/control-plane
-            
-            # Start the service in background
-            echo "🚀 Starting control-plane service..."
-            nohup ./target/release/control-plane > /tmp/control-plane.log 2>&1 &
+            # Start the service with cargo run
+            echo "🚀 Starting control-plane with cargo run..."
+            nohup cargo run --release > /tmp/control-plane.log 2>&1 &
             
             # Wait for startup
-            sleep 5
+            sleep 10
             
             # Check if it's running
-            if pgrep -f "target/release/control-plane" > /dev/null; then
+            if pgrep -f "control-plane" > /dev/null; then
               echo "✅ Control plane deployed and running!"
               ps aux | grep control-plane | grep -v grep
             else
