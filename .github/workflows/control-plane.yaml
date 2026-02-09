@@ -52,11 +52,22 @@ jobs:
             
             # Show current directory for debugging
             echo "📁 Current directory: $(pwd)"
-            echo "📋 Files:"
-            ls -la
+            
+            # Load cargo environment (try multiple paths)
+            if [ -f "$HOME/.cargo/env" ]; then
+              source "$HOME/.cargo/env"
+            elif command -v cargo &> /dev/null; then
+              echo "✅ Cargo already in PATH"
+            else
+              echo "❌ Cargo not found, installing rustup..."
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              source "$HOME/.cargo/env"
+            fi
+            
+            # Verify cargo is available
+            cargo --version
             
             # Build the project
-            source $HOME/.cargo/env
             echo "📦 Building control-plane..."
             cargo build --release
             
