@@ -2,7 +2,7 @@ name: Build and Push Agent
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
     paths:
       - 'agent/**'
   workflow_dispatch:
