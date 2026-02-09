@@ -1,0 +1,81 @@
+name: Control Plane CI/CD - Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'control-plane/**'
+      - '.github/workflows/control-plane.yaml'
+  workflow_dispatch:
+
+env:
+  EC2_HOST: 13.49.148.250
+  EC2_USER: ubuntu
+  DEPLOY_PATH: /home/ubuntu/lighter-k8/control-plane
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          # Copy files to EC2
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude 'target/' \
+            --exclude '.git/' \
+            ./control-plane/ \
+            ${{ env.EC2_USER }}@${{ env.EC2_HOST }}:${{ env.DEPLOY_PATH }}/
+          
+          # Build and restart on EC2
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'EOF'
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Kill existing process
+            pkill -f control-plane || true
+            
+            # Build the project
+            cargo build --release
+            
+            # Start the service in background
+            nohup ./target/release/control-plane > /tmp/control-plane.log 2>&1 &
+            
+            # Wait a bit for startup
+            sleep 5
+            
+            # Check if it's running
+            if pgrep -f control-plane > /dev/null; then
+              echo "✅ Control plane deployed and running!"
+            else
+              echo "❌ Control plane failed to start"
+              tail -50 /tmp/control-plane.log
+              exit 1
+            fi
+          EOF
+
+      - name: Health check
+        run: |
+          # Wait for service to be ready
+          sleep 10
+          
+          # Test health endpoint
+          curl -f http://${{ env.EC2_HOST }}:8080/health || {
+            echo "Health check failed"
+            exit 1
+          }
+          
+          echo "✅ Deployment successful! API is healthy."
+          echo "🔗 API URL: http://${{ env.EC2_HOST }}:8080"
