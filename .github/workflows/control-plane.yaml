@@ -37,37 +37,54 @@ jobs:
             --exclude 'target/' \
             --exclude '.git/' \
             ./control-plane/ \
-            ${{ env.EC2_USER }}@${{ env.EC2_HOST }}:${{ env.DEPLOY_PATH }}/
+            ${{ env.EC2_USER }}@${{ env.EC2_HOST }}:/home/ubuntu/lighter-k8/control-plane/
           
           # Build and restart on EC2
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ env.EC2_USER }}@${{ env.EC2_HOST }} bash << 'EOF'
-            cd /home/ubuntu/lighter-k8/control-plane
+            set -e
             
             # Kill existing process
             pkill -f control-plane || true
             
+            # Navigate to project directory
+            cd /home/ubuntu/lighter-k8/control-plane
+            
+            # Show current directory for debugging
+            echo "📁 Current directory: $(pwd)"
+            echo "📋 Files:"
+            ls -la
+            
             # Build the project
             source $HOME/.cargo/env
+            echo "📦 Building control-plane..."
             cargo build --release
             
             # Verify binary exists
-            if [ ! -f target/release/control-plane ]; then
-              echo "❌ Binary not found after build!"
+            if [ ! -f ./target/release/control-plane ]; then
+              echo "❌ Binary not found!"
+              echo "Contents of target/release/:"
+              ls -la target/release/ 2>&1 || echo "target/release directory does not exist"
               exit 1
             fi
             
-            # Start the service in background
-            nohup target/release/control-plane > /tmp/control-plane.log 2>&1 &
+            echo "✅ Binary built successfully"
+            ls -lh ./target/release/control-plane
             
-            # Wait a bit for startup
+            # Start the service in background
+            echo "🚀 Starting control-plane service..."
+            nohup ./target/release/control-plane > /tmp/control-plane.log 2>&1 &
+            
+            # Wait for startup
             sleep 5
             
             # Check if it's running
-            if pgrep -f control-plane > /dev/null; then
+            if pgrep -f "target/release/control-plane" > /dev/null; then
               echo "✅ Control plane deployed and running!"
+              ps aux | grep control-plane | grep -v grep
             else
               echo "❌ Control plane failed to start"
+              echo "Last 50 lines of log:"
               tail -50 /tmp/control-plane.log
               exit 1
             fi
