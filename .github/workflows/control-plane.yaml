@@ -47,8 +47,8 @@ jobs:
             # Kill existing process
             pkill -f control-plane || true
             
-            # Navigate to project directory
-            cd /home/ubuntu/lighter-k8/control-plane
+            # Navigate to workspace root (not control-plane subdirectory)
+            cd /home/ubuntu/lighter-k8
             
             # Show current directory for debugging
             echo "📁 Current directory: $(pwd)"
@@ -67,15 +67,15 @@ jobs:
             # Verify cargo is available
             cargo --version
             
-            # Build the project
+            # Build the control-plane (from workspace root)
             echo "📦 Building control-plane..."
-            cargo build --release
+            cargo build --release --bin control-plane
             
-            # Verify binary exists
+            # Verify binary exists (workspace target directory)
             if [ ! -f ./target/release/control-plane ]; then
               echo "❌ Binary not found!"
-              echo "Contents of target/release/:"
-              ls -la target/release/ 2>&1 || echo "target/release directory does not exist"
+              echo "Workspace target directory contents:"
+              ls -la ./target/release/ 2>&1 || echo "target/release directory does not exist"
               exit 1
             fi
             
