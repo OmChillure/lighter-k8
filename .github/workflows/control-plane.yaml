@@ -87,14 +87,22 @@ jobs:
 
       - name: Health check
         run: |
-          # Wait for service to be ready
-          sleep 10
+          echo "⏳ Waiting for service to start..."
           
-          # Test health endpoint
-          curl -f http://${{ env.EC2_HOST }}:8080/health || {
-            echo "Health check failed"
-            exit 1
-          }
+          # Retry health check up to 30 times (60 seconds total)
+          for i in {1..30}; do
+            if curl -f -s http://${{ env.EC2_HOST }}:8080/health > /dev/null 2>&1; then
+              echo "✅ Deployment successful! API is healthy."
+              echo "🔗 API URL: http://${{ env.EC2_HOST }}:8080"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting..."
+            sleep 2
+          done
           
-          echo "✅ Deployment successful! API is healthy."
-          echo "🔗 API URL: http://${{ env.EC2_HOST }}:8080"
+          echo "❌ Health check failed after 60 seconds"
+          echo "Checking if service is running on EC2..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
+            "ps aux | grep control-plane | grep -v grep && tail -100 /tmp/control-plane.log"
+          exit 1
