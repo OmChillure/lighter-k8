@@ -41,17 +41,24 @@ jobs:
           
           # Build and restart on EC2
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'EOF'
-            cd ${{ env.DEPLOY_PATH }}
+            ${{ env.EC2_USER }}@${{ env.EC2_HOST }} bash << 'EOF'
+            cd /home/ubuntu/lighter-k8/control-plane
             
             # Kill existing process
             pkill -f control-plane || true
             
             # Build the project
+            source $HOME/.cargo/env
             cargo build --release
             
+            # Verify binary exists
+            if [ ! -f target/release/control-plane ]; then
+              echo "❌ Binary not found after build!"
+              exit 1
+            fi
+            
             # Start the service in background
-            nohup ./target/release/control-plane > /tmp/control-plane.log 2>&1 &
+            nohup target/release/control-plane > /tmp/control-plane.log 2>&1 &
             
             # Wait a bit for startup
             sleep 5
